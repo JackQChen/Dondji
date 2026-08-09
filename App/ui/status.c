@@ -115,7 +115,7 @@ bool UI_IsDualVfoMainScreen(void)
 void UI_DisplayMainOnlyStatusBar(void)
 {
 #ifdef ENABLE_FEAT_F4HWN
-    char str[8] = "";
+    char str[12] = "";
     uint8_t *line = gStatusLine;
     unsigned int x = 0;
     const uint8_t vfo = gEeprom.TX_VFO;
@@ -123,31 +123,27 @@ void UI_DisplayMainOnlyStatusBar(void)
 
     memset(gStatusLine, 0, sizeof(gStatusLine));
 
-    memcpy(line + x, BITMAP_Antenna, sizeof(BITMAP_Antenna));
-    x += 6;
+    // Signal bars: 5-dot placeholder, bars overlay
+    {
+        for (uint8_t i = 0; i < 5; i++) {
+            line[x + (unsigned int)i * 2u] |= 0x40;
+        }
 
-    x -= 2;
-    uint8_t bars = 0;
-    if (FUNCTION_IsRx()) {
-        /* RSSI 格与 gVFO_RSSI_bar_level 均按当前接收 VFO（双守时可为 B），不能用 TX_VFO */
-        const uint8_t rxVfo = gEeprom.RX_VFO;
-        bars = (gVFO_RSSI_bar_level[rxVfo] * 5 + 5) / 6;
-        if (bars > 5) bars = 5;
-    }
-    for (uint8_t i = 0; i < 5; i++) {
-        uint8_t h = i + 1;
-        uint8_t mask = ((1u << h) - 1u) << (7 - h);
-        if (i < bars)
+        uint8_t bars = 0;
+        if (FUNCTION_IsRx()) {
+            const uint8_t rxVfo = gEeprom.RX_VFO;
+            bars = (gVFO_RSSI_bar_level[rxVfo] * 5 + 5) / 6;
+            if (bars > 5) bars = 5;
+        }
+
+        for (uint8_t i = 0; i < bars; i++) {
+            uint8_t mask = ((1u << i) - 1u) << (6u - i);
             line[x + (unsigned int)i * 2u] |= mask;
+        }
+        x += 11;
     }
-    x += 10;
 
-    if (pVfo->freq_config_RX.Frequency == pVfo->freq_config_TX.Frequency) {
-        GUI_DisplaySmallest("|->|", x, 1, true, true);
-        x += 17;
-    }
-    x += 1;
-
+    // Power
     {
         const char *pwr[] = {"L1","L2","L3","L4","L5","M","H"};
         uint8_t idx = pVfo->OUTPUT_POWER;
@@ -155,48 +151,36 @@ void UI_DisplayMainOnlyStatusBar(void)
             idx = gSetting_set_pwr + 1;
         if (idx >= 1 && idx <= 7) {
             DualVfoU8g2_DrawSmallTextStatus(pwr[idx - 1], (uint8_t)x, 2u, true);
-            x += 9;
         }
     }
-    x += 1;
 
+    // Timer: MM:SS (<1h) or HH:MM, colon blinks
     {
-        const char *bandwidth_letter = (pVfo->CHANNEL_BANDWIDTH == BANDWIDTH_WIDE) ? "W" : "N";
-        DualVfoU8g2_DrawSmallTextStatus(bandwidth_letter, (uint8_t)x, 2u, true);
-        x += 6;
-    }
-    x += 1;
+        static uint8_t center_x, colon_x;
+        static bool init;
 
-    {
-        uint8_t sq = gEeprom.SQUELCH_LEVEL;
-        if (sq > 9) sq = 9;
-        sprintf(str, "%u", sq);
-        DualVfoU8g2_DrawSmallTextStatus(str, (uint8_t)x, 2u, true);
-    }
-    x += 7;
-
-    {
-        const uint16_t step_frequency_hz = pVfo->StepFrequency;
-        const uint16_t step_khz_whole = step_frequency_hz / 100u;
-        const uint16_t step_khz_frac = step_frequency_hz % 100u;
-        const unsigned int step_khz_whole_u = (unsigned int)step_khz_whole;
-        const unsigned int step_khz_frac_u = (unsigned int)step_khz_frac;
-
-        if (step_khz_frac == 0u) {
-            sprintf(str, "%uK", step_khz_whole_u);
+        uint32_t t = gPowerOnSeconds;
+        if (t < 3600u) {
+            sprintf(str, "%02u %02u", (unsigned)(t / 60u), (unsigned)(t % 60u));
         } else {
-            const uint16_t step_frac_tenths = step_khz_frac / 10u;
-            const uint16_t step_frac_ones = step_khz_frac % 10u;
+            sprintf(str, "%02u %02u", (unsigned)((t / 3600u) % 100u), (unsigned)((t % 3600u) / 60u));
+        }
 
-            if (step_frac_ones == 0u) {
-                sprintf(str, "%u.%uK", step_khz_whole_u, (unsigned int)step_frac_tenths);
-            } else {
-                sprintf(str, "%u.%02uK", step_khz_whole_u, step_khz_frac_u);
-            }
+        if (!init) {
+            init = true;
+            uint8_t lw = DualVfoU8g2_GetSmallTextWidth("00");
+            uint8_t fw = DualVfoU8g2_GetSmallTextWidth("00:00");
+            center_x = (uint8_t)((LCD_WIDTH - fw) / 2u);
+            colon_x  = center_x + lw + 1u;
+        }
+
+        DualVfoU8g2_DrawSmallTextStatus(str, center_x, 2u, true);
+        if (!(t & 1u)) {
+            DualVfoU8g2_DrawSmallTextStatus(":", colon_x, 2u, true);
         }
     }
-    DualVfoU8g2_DrawSmallTextStatus(str, (uint8_t)x, 2u, true);
 
+    // Battery icon
     x = LCD_WIDTH - UI_BATTERY_ICON_WIDTH - 2;
     {
         uint8_t battery_bitmap[UI_BATTERY_ICON_WIDTH];
@@ -207,10 +191,6 @@ void UI_DisplayMainOnlyStatusBar(void)
         memcpy(line + x, battery_bitmap, UI_BATTERY_ICON_WIDTH);
     }
 
-    /*
-     * MAIN ONLY / 菜单顶栏 / FM / 测频(F+4)：电池旁小字由 BatTxt（无/电压/百分比）决定；
-     * 图标填充见 BATTERY_GetReadings（百分比档按 1% 更新；无/电压档按 0.1V 更新）。
-     */
     {
         const bool have_side_text = UI_FormatBatteryStatusSideText(str, sizeof(str));
 

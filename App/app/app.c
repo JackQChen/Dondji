@@ -1592,6 +1592,12 @@ void APP_TimeSlice500ms(void)
     gNextTimeslice_500ms = false;
     bool exit_menu = false;
 
+    static uint32_t lastSec;
+    if (gPowerOnSeconds != lastSec) {
+        lastSec = gPowerOnSeconds;
+        gUpdateStatus = true;
+    }
+
     // Skipped authentic device check
 
     if (gKeypadLocked > 0)

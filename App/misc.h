@@ -430,6 +430,7 @@ extern uint8_t               gFSKWriteIndex;
     extern uint8_t           gNoaaChannel;
 #endif
 extern volatile bool         gNextTimeslice;
+extern volatile uint32_t     gPowerOnSeconds;
 extern bool                  gUpdateDisplay;
 extern bool                  gF_LOCK;
 #ifdef ENABLE_FMRADIO
