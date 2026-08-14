@@ -16,7 +16,11 @@ jobs:
     - name: Compile firmware
       run: |
         chmod +x compile-with-docker.sh
-        ./compile-with-docker.sh Fusion
+        ./compile-with-docker.sh Fusion \
+          -DENABLE_FEAT_F4HWN_QRCODE=OFF \
+          -DENABLE_FEAT_F4HWN_CA=OFF \
+          -DENABLE_FEAT_F4HWN_PMR=OFF \
+          -DENABLE_FEAT_F4HWN_GMRS_FRS_MURS=OFF
 
     - name: Upload firmware artifact
       uses: actions/upload-artifact@v4

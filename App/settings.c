@@ -710,6 +710,11 @@ void SETTINGS_FetchChannelName(char *s, const uint16_t channel)
     i--;
     while (i >= 0 && s[i] == 32)
         s[i--] = 0;
+
+#ifdef ENABLE_CHINESE
+    if (strcmp(s, "xawjzj") == 0)
+        strcpy(s, "西安吾九中继");
+#endif
 }
 
 void SETTINGS_FactoryReset(bool bIsAll)
