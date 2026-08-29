@@ -22,6 +22,7 @@
 #include "app/toolbox_menu.h"
 #include "app/mokuyu.h"
 #include "app/cw.h"
+#include "app/dino.h" 
 #include "keyboard_state.h"
 #include "../driver/bk4819.h"
 #include "../driver/gpio.h"
@@ -61,11 +62,12 @@ static void DrawMenu(void)
     // Menu items - shifted down 3 pixels from row positions
     const char *items[] = {
         (gUiLanguage == UI_LANGUAGE_CN) ? "电子木鱼" : "Mokuyu",
-        "cw"
+        "cw",
+        (gUiLanguage == UI_LANGUAGE_CN) ? "小恐龙" : "Dino Run"
     };
-    const uint8_t row_start[] = {3, 5};
+    const uint8_t row_start[] = {2, 4, 6};
 
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < 3; i++) {
         uint8_t row = row_start[i];
         UI_PrintStringSmallAtPixel(items[i], 0, 127, row * 8 + 3, row * 8 + 14, 0);
         if (i == selectedIndex) {
@@ -112,7 +114,7 @@ static bool HandleInput(void)
             break;
         case KEY_DOWN:
             // Move down
-            if (selectedIndex < 1)
+            if (selectedIndex < 2)
                 selectedIndex++;
             break;
         case KEY_MENU:
@@ -121,6 +123,8 @@ static bool HandleInput(void)
                 APP_RunMokuyu();
             } else if (selectedIndex == 1) {
                 APP_RunCW();
+            } else if (selectedIndex == 2) {    // 新增
+                APP_RunDino();
             }
             break;
         default:
